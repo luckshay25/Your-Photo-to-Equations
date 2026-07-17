@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>From Photo to Fourier — turn any picture into equations</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Spectral:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<style>
+:root{
+  --paper:#FAFAF7;
+  --grid:rgba(30,64,120,.10);
+  --grid-major:rgba(30,64,120,.18);
+  --ink:#16213E;
+  --ink-soft:#4A5578;
+  --pen:#C0392B;
+  --panel:#FFFFFF;
+  --line:#D8DCE8;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{
+  font-family:'IBM Plex Sans',sans-serif;
+  color:var(--ink);
+  background-color:var(--paper);
+  background-image:
+    linear-gradient(var(--grid-major) 1px,transparent 1px),
+    linear-gradient(90deg,var(--grid-major) 1px,transparent 1px),
+    linear-gradient(var(--grid) 1px,transparent 1px),
+    linear-gradient(90deg,var(--grid) 1px,transparent 1px);
+  background-size:120px 120px,120px 120px,24px 24px,24px 24px;
+  min-height:100vh;
+}
+.wrap{max-width:1060px;margin:0 auto;padding:40px 20px 80px}
+header{margin-bottom:36px}
+.eyebrow{
+  font-family:'IBM Plex Mono',monospace;font-size:.78rem;letter-spacing:.14em;
+  color:var(--pen);text-transform:uppercase;margin-bottom:10px;
+}
+h1{
+  font-family:'Spectral',serif;font-weight:600;font-size:clamp(1.9rem,4.6vw,3.1rem);
+  line-height:1.12;max-width:21ch;
+}
+h1 .math{color:var(--pen);white-space:nowrap}
+.sub{margin-top:14px;max-width:58ch;color:var(--ink-soft);font-size:1.02rem;line-height:1.55}
+.sub b{color:var(--ink)}
+
+/* upload */
+.drop{
+  margin-top:30px;border:2px dashed var(--ink);border-radius:10px;
+  background:rgba(255,255,255,.75);padding:38px 24px;text-align:center;
+  cursor:pointer;transition:background .15s,border-color .15s;
+}
+.drop:hover,.drop.over{background:#fff;border-color:var(--pen)}
+.drop:focus-visible{outline:3px solid var(--pen);outline-offset:3px}
+.drop .big{font-family:'Spectral',serif;font-size:1.25rem;font-weight:600}
+.drop .hint{margin-top:6px;color:var(--ink-soft);font-size:.9rem}
+.drop input{display:none}
+.privacy{
+  margin-top:10px;font-size:.82rem;color:var(--ink-soft);text-align:center;
+}
+.privacy::before{content:"⌂ ";color:var(--pen)}
+
+/* workspace */
+#work{display:none;margin-top:34px}
+.panels{display:grid;grid-template-columns:1fr 1fr;gap:22px}
+@media(max-width:820px){.panels{grid-template-columns:1fr}}
+.panel{
+  background:var(--panel);border:1px solid var(--line);border-radius:10px;
+  padding:18px;box-shadow:0 2px 10px rgba(22,33,62,.06);
+}
+.panel h2{
+  font-family:'Spectral',serif;font-weight:600;font-size:1.08rem;margin-bottom:12px;
+  display:flex;align-items:baseline;justify-content:space-between;gap:10px;
+}
+.panel h2 .tag{font-family:'IBM Plex Mono',monospace;font-size:.72rem;color:var(--ink-soft);font-weight:400}
+canvas.view{width:100%;height:auto;border:1px solid var(--line);border-radius:6px;background:#fff;display:block}
+
+/* controls */
+.controls{margin-top:22px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:18px 20px;
+  display:flex;flex-wrap:wrap;gap:22px;align-items:center}
+.ctrl{display:flex;flex-direction:column;gap:6px;min-width:210px;flex:1}
+.ctrl label{font-size:.83rem;font-weight:600}
+.ctrl label .val{font-family:'IBM Plex Mono',monospace;color:var(--pen);font-weight:500}
+input[type=range]{accent-color:var(--pen);width:100%}
+.mode{display:flex;border:1px solid var(--ink);border-radius:7px;overflow:hidden}
+.mode button{
+  font-family:'IBM Plex Sans',sans-serif;font-size:.85rem;font-weight:600;padding:8px 16px;
+  border:none;background:#fff;color:var(--ink);cursor:pointer;
+}
+.mode button[aria-pressed=true]{background:var(--ink);color:#fff}
+.mode button:focus-visible{outline:3px solid var(--pen);outline-offset:-3px}
+.btn{
+  font-family:'IBM Plex Sans',sans-serif;font-size:.88rem;font-weight:600;
+  padding:10px 18px;border-radius:7px;border:1.5px solid var(--ink);
+  background:var(--ink);color:#fff;cursor:pointer;
+}
+.btn.ghost{background:#fff;color:var(--ink)}
+.btn:hover{background:var(--pen);border-color:var(--pen);color:#fff}
+.btn:focus-visible{outline:3px solid var(--pen);outline-offset:3px}
+.stat{
+  font-family:'IBM Plex Mono',monospace;font-size:.8rem;color:var(--ink-soft);
+  margin-top:14px;
+}
+.stat b{color:var(--pen);font-weight:500}
+
+/* equations */
+.eqs{
+  margin-top:22px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:20px;
+}
+.eqs h2{font-family:'Spectral',serif;font-weight:600;font-size:1.08rem;margin-bottom:6px}
+.eqs .note{font-size:.85rem;color:var(--ink-soft);margin-bottom:14px}
+pre#eqtext{
+  font-family:'IBM Plex Mono',monospace;font-size:.8rem;line-height:1.65;
+  background:#FBFBF8;border:1px solid var(--line);border-left:3px solid var(--pen);
+  border-radius:6px;padding:16px;overflow-x:auto;white-space:pre;max-height:340px;overflow-y:auto;
+}
+.eqs .actions{margin-top:14px;display:flex;gap:12px;flex-wrap:wrap}
+
+/* how it works */
+.how{margin-top:44px;max-width:66ch}
+.how h2{font-family:'Spectral',serif;font-weight:600;font-size:1.3rem;margin-bottom:10px}
+.how p{color:var(--ink-soft);line-height:1.65;font-size:.95rem;margin-bottom:10px}
+.how .formula{
+  font-family:'IBM Plex Mono',monospace;color:var(--ink);background:#fff;
+  border:1px solid var(--line);border-radius:6px;padding:12px 16px;margin:12px 0;
+  font-size:.9rem;overflow-x:auto;
+}
+footer{margin-top:50px;font-size:.8rem;color:var(--ink-soft)}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="eyebrow">Fourier series · image processing · a classroom demo</div>
+  <h1>Every picture is secretly <span class="math">z(t)&nbsp;=&nbsp;Σ&nbsp;c<sub>k</sub>&nbsp;e<sup>2πikt</sup></span></h1>
+  <p class="sub">Upload a photo and this page will trace its contours, fit a <b>Fourier series</b> to every curve, and hand you the actual equations. Slide the number of terms and watch the picture emerge from pure sines and cosines.</p>
+</header>
+
+<div class="drop" id="drop" tabindex="0" role="button" aria-label="Upload an image">
+  <div class="big">Drop a photo here, or click to choose</div>
+  <div class="hint">Works best with a clear subject on a plain background — a portrait, a leaf, a logo, your signature</div>
+  <input type="file" id="file" accept="image/*">
+</div>
+<p class="privacy">Your photo never leaves this page — all the mathematics runs in your own browser.</p>
+
+<div id="work">
+  <div class="controls">
+    <div class="mode" role="group" aria-label="Tracing mode">
+      <button id="mDetail" aria-pressed="true">Detailed sketch</button>
+      <button id="mOutline" aria-pressed="false">Outline only</button>
+    </div>
+    <div class="ctrl">
+      <label for="kSlider">Fourier terms per curve — K = <span class="val" id="kVal">40</span></label>
+      <input type="range" id="kSlider" min="2" max="120" value="40">
+    </div>
+    <div class="ctrl">
+      <label for="sSlider">Edge sensitivity — <span class="val" id="sVal">60</span></label>
+      <input type="range" id="sSlider" min="20" max="140" value="60">
+    </div>
+    <button class="btn ghost" id="redraw">Replay drawing</button>
+  </div>
+
+  <div class="panels" style="margin-top:22px">
+    <div class="panel">
+      <h2>Your photo <span class="tag">input</span></h2>
+      <canvas class="view" id="cvSrc"></canvas>
+    </div>
+    <div class="panel">
+      <h2>Drawn from equations <span class="tag" id="statTag">—</span></h2>
+      <canvas class="view" id="cvOut"></canvas>
+      <div class="stat" id="stat"></div>
+    </div>
+  </div>
+
+  <div class="eqs">
+    <h2>The equations</h2>
+    <p class="note">Parametric form of the <b>longest curve</b> (usually the main outline), t ∈ [0, 1). Each additional curve in the sketch has its own pair of series — download the file for all of them.</p>
+    <pre id="eqtext"></pre>
+    <div class="actions">
+      <button class="btn" id="dlEq">Download all equations (.txt)</button>
+      <button class="btn ghost" id="dlImg">Download the sketch (.png)</button>
+    </div>
+  </div>
+</div>
+
+<section class="how">
+  <h2>How it works</h2>
+  <p>Each closed contour in the image is treated as a path in the complex plane, z(t) = x(t) + i·y(t), traversed once as t runs from 0 to 1. Any such loop can be written as a sum of rotating vectors (epicycles):</p>
+  <div class="formula">z(t) = Σₖ cₖ · e^(2πik·t),   where   cₖ = ∫₀¹ z(t) · e^(−2πik·t) dt</div>
+  <p>The coefficients cₖ are computed here with the discrete Fourier transform of the traced boundary points. Truncating the sum at ±K terms gives an approximation that sharpens as K grows — the same bias–variance trade-off you meet in regression, applied to a curve instead of a scatterplot.</p>
+  <p>Pipeline: grayscale → Sobel edge detection (or background thresholding in outline mode) → contour extraction (marching squares) → uniform arc-length resampling → DFT per curve.</p>
+</section>
+
+<footer>Built as a teaching demo for Fourier analysis. No uploads, no servers, no tracking — just mathematics.</footer>
+</div>
+
+<script>
+(function(){
+"use strict";
+const $ = id => document.getElementById(id);
+const drop=$('drop'), fileIn=$('file'), work=$('work');
+const cvSrc=$('cvSrc'), cvOut=$('cvOut');
+const kSlider=$('kSlider'), sSlider=$('sSlider'), kVal=$('kVal'), sVal=$('sVal');
+const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+const KMAX=120, RESAMPLE=1024, DRAW_PTS=500;
+let mode='detail';           // 'detail' | 'outline'
+let imgData=null, W=0, H=0;  // downscaled image
+let curves=[];               // [{coeffs: Map k->[re,im], npts}]
+let animId=null;
+
+/* ---------- upload ---------- */
+drop.addEventListener('click',()=>fileIn.click());
+drop.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();fileIn.click();}});
+['dragover','dragenter'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add('over');}));
+['dragleave','drop'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove('over');}));
+drop.addEventListener('drop',e=>{const f=e.dataTransfer.files[0]; if(f) loadFile(f);});
+fileIn.addEventListener('change',()=>{if(fileIn.files[0]) loadFile(fileIn.files[0]);});
+
+function loadFile(f){
+  const url=URL.createObjectURL(f);
+  const img=new Image();
+  img.onload=()=>{
+    URL.revokeObjectURL(url);
+    const maxDim=380, s=Math.min(1,maxDim/Math.max(img.width,img.height));
+    W=Math.round(img.width*s); H=Math.round(img.height*s);
+    const c=document.createElement('canvas'); c.width=W; c.height=H;
+    c.getContext('2d').drawImage(img,0,0,W,H);
+    imgData=c.getContext('2d').getImageData(0,0,W,H);
+    // show source at display resolution
+    cvSrc.width=W*2; cvSrc.height=H*2;
+    cvSrc.getContext('2d').drawImage(img,0,0,W*2,H*2);
+    work.style.display='block';
+    process();
+    work.scrollIntoView({behavior:reduced?'auto':'smooth'});
+  };
+  img.onerror=()=>alert('That file could not be read as an image. Try a JPG or PNG.');
+  img.src=url;
+}
+
+/* ---------- image ops ---------- */
+function grayscale(d){
+  const g=new Float64Array(W*H);
+  for(let i=0;i<W*H;i++){const p=i*4; g[i]=0.299*d.data[p]+0.587*d.data[p+1]+0.114*d.data[p+2];}
+  return g;
+}
+function blur3(g){ // light 3x3 box blur
+  const o=new Float64Array(W*H);
+  for(let y=0;y<H;y++)for(let x=0;x<W;x++){
+    let s=0,n=0;
+    for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){
+      const xx=x+dx,yy=y+dy;
+      if(xx>=0&&xx<W&&yy>=0&&yy<H){s+=g[yy*W+xx];n++;}
+    }
+    o[y*W+x]=s/n;
+  }
+  return o;
+}
+function sobelMask(g,thr){
+  const v=new Float64Array(W*H);
+  for(let y=1;y<H-1;y++)for(let x=1;x<W-1;x++){
+    const i=y*W+x;
+    const gx=-g[i-W-1]-2*g[i-1]-g[i+W-1]+g[i-W+1]+2*g[i+1]+g[i+W+1];
+    const gy=-g[i-W-1]-2*g[i-W]-g[i-W+1]+g[i+W-1]+2*g[i+W]+g[i+W+1];
+    v[i]=Math.hypot(gx,gy)>thr?1:0;
+  }
+  return v;
+}
+function backgroundMask(d,tol){
+  // estimate background colour from the border pixels (median-ish: mean of border)
+  let r=0,g=0,b=0,n=0;
+  const add=(x,y)=>{const p=(y*W+x)*4; r+=d.data[p];g+=d.data[p+1];b+=d.data[p+2];n++;};
+  for(let x=0;x<W;x++){add(x,0);add(x,H-1);}
+  for(let y=0;y<H;y++){add(0,y);add(W-1,y);}
+  r/=n;g/=n;b/=n;
+  const v=new Float64Array(W*H);
+  for(let i=0;i<W*H;i++){
+    const p=i*4;
+    const dist=Math.hypot(d.data[p]-r,d.data[p+1]-g,d.data[p+2]-b);
+    v[i]=dist>tol?1:0;
+  }
+  return v;
+}
+
+/* ---------- contours (marching squares via d3) ---------- */
+function extractCurves(values){
+  const polys=d3.contours().size([W,H]).contour(values,0.5);
+  const rings=[];
+  for(const poly of polys.coordinates) for(const ring of poly) rings.push(ring);
+  // filter tiny rings, keep by perimeter length
+  const kept=rings.filter(r=>r.length>=40)
+                  .sort((a,b)=>b.length-a.length)
+                  .slice(0,60);
+  return kept.map(fitFourier);
+}
+function resample(ring,N){
+  // uniform arc-length resampling to N points
+  const L=[0];
+  for(let i=1;i<ring.length;i++)
+    L.push(L[i-1]+Math.hypot(ring[i][0]-ring[i-1][0],ring[i][1]-ring[i-1][1]));
+  const total=L[L.length-1];
+  const out=new Float64Array(N*2);
+  let j=0;
+  for(let i=0;i<N;i++){
+    const target=total*i/N;
+    while(j<ring.length-2 && L[j+1]<target) j++;
+    const seg=L[j+1]-L[j]||1;
+    const a=(target-L[j])/seg;
+    out[2*i]  = ring[j][0]+a*(ring[j+1][0]-ring[j][0]);
+    out[2*i+1]= ring[j][1]+a*(ring[j+1][1]-ring[j][1]);
+  }
+  return out;
+}
+function fitFourier(ring){
+  const pts=resample(ring,RESAMPLE);
+  const N=RESAMPLE;
+  const coeffs={};
+  for(let k=-KMAX;k<=KMAX;k++){
+    let re=0,im=0;
+    const w=-2*Math.PI*k/N;
+    for(let n=0;n<N;n++){
+      const x=pts[2*n], y=pts[2*n+1];
+      const c=Math.cos(w*n), s=Math.sin(w*n);
+      re+=x*c-y*s; im+=x*s+y*c;
+    }
+    coeffs[k]=[re/N,im/N];
+  }
+  return {coeffs, perim:ring.length};
+}
+
+/* ---------- reconstruction ---------- */
+function curvePoints(curve,K,nPts){
+  const out=new Float64Array(nPts*2);
+  for(let i=0;i<nPts;i++){
+    const t=i/nPts; let x=0,y=0;
+    for(let k=-K;k<=K;k++){
+      const c=curve.coeffs[k]; if(!c) continue;
+      const a=2*Math.PI*k*t, co=Math.cos(a), si=Math.sin(a);
+      x+=c[0]*co-c[1]*si;
+      y+=c[0]*si+c[1]*co;
+    }
+    out[2*i]=x; out[2*i+1]=y;
+  }
+  return out;
+}
+function render(animate){
+  if(animId) cancelAnimationFrame(animId);
+  const K=+kSlider.value;
+  const scale=2;
+  cvOut.width=W*scale; cvOut.height=H*scale;
+  const ctx=cvOut.getContext('2d');
+  ctx.fillStyle='#fff'; ctx.fillRect(0,0,cvOut.width,cvOut.height);
+  ctx.strokeStyle=getComputedStyle(document.documentElement).getPropertyValue('--ink').trim()||'#16213E';
+  ctx.lineWidth=1.4; ctx.lineJoin='round'; ctx.lineCap='round';
+  const paths=curves.map(c=>curvePoints(c,K,DRAW_PTS));
+  const drawUpTo=frac=>{
+    ctx.fillStyle='#fff'; ctx.fillRect(0,0,cvOut.width,cvOut.height);
+    const m=Math.max(2,Math.floor(DRAW_PTS*frac));
+    for(const p of paths){
+      ctx.beginPath();
+      ctx.moveTo(p[0]*scale,p[1]*scale);
+      for(let i=1;i<m;i++) ctx.lineTo(p[2*i]*scale,p[2*i+1]*scale);
+      if(frac>=1) ctx.closePath();
+      ctx.stroke();
+    }
+  };
+  if(!animate||reduced){drawUpTo(1);return;}
+  const t0=performance.now(), dur=1300;
+  const step=now=>{
+    const f=Math.min(1,(now-t0)/dur);
+    drawUpTo(f);
+    if(f<1) animId=requestAnimationFrame(step);
+  };
+  animId=requestAnimationFrame(step);
+}
+
+/* ---------- equations text ---------- */
+function realCoeffs(curve,K){
+  // convert c_k to x(t),y(t) cos/sin form
+  const c0=curve.coeffs[0];
+  const terms=[];
+  for(let k=1;k<=K;k++){
+    const cp=curve.coeffs[k],cm=curve.coeffs[-k];
+    terms.push({
+      k,
+      Ax:cp[0]+cm[0], Bx:-(cp[1]-cm[1]),
+      Ay:cp[1]+cm[1], By: (cp[0]-cm[0]),
+    });
+  }
+  return {a0x:c0[0], a0y:c0[1], terms};
+}
+const f=v=>(v>=0?'+':'−')+' '+Math.abs(v).toFixed(3);
+function eqString(curve,K,label){
+  const {a0x,a0y,terms}=realCoeffs(curve,K);
+  let s=label+'\n';
+  s+='x(t) = '+a0x.toFixed(3);
+  for(const T of terms) s+=`\n   ${f(T.Ax)}·cos(2π·${T.k}t) ${f(T.Bx)}·sin(2π·${T.k}t)`;
+  s+='\n\ny(t) = '+a0y.toFixed(3);
+  for(const T of terms) s+=`\n   ${f(T.Ay)}·cos(2π·${T.k}t) ${f(T.By)}·sin(2π·${T.k}t)`;
+  return s;
+}
+function updateEquationPanel(){
+  if(!curves.length){$('eqtext').textContent='No curves found — try raising the edge sensitivity slider or a higher-contrast photo.';return;}
+  const K=+kSlider.value;
+  const main=curves[0];
+  const showK=Math.min(K,8);
+  let txt=eqString(main,showK,`— Curve 1 of ${curves.length} (main outline), first ${showK} of ${K} harmonics, t ∈ [0,1) —`);
+  if(K>showK) txt+=`\n\n   … + ${K-showK} more harmonics per axis (in the downloaded file)`;
+  $('eqtext').textContent=txt;
+  $('stat').innerHTML=`<b>${curves.length}</b> curves · <b>K = ${K}</b> harmonics each · <b>${curves.length*(2*(2*K+1))}</b> real coefficients in total`;
+  $('statTag').textContent=`${curves.length} curves · K=${K}`;
+}
+
+/* ---------- pipeline ---------- */
+function process(){
+  if(!imgData) return;
+  const g=blur3(grayscale(imgData));
+  const values = mode==='detail'
+    ? sobelMask(g,+sSlider.value)
+    : backgroundMask(imgData,+sSlider.value);
+  curves=extractCurves(values);
+  render(true);
+  updateEquationPanel();
+}
+
+/* ---------- controls ---------- */
+kSlider.addEventListener('input',()=>{kVal.textContent=kSlider.value; render(false); updateEquationPanel();});
+kSlider.addEventListener('change',()=>render(true));
+sSlider.addEventListener('input',()=>{sVal.textContent=sSlider.value;});
+sSlider.addEventListener('change',process);
+$('redraw').addEventListener('click',()=>render(true));
+$('mDetail').addEventListener('click',()=>setMode('detail'));
+$('mOutline').addEventListener('click',()=>setMode('outline'));
+function setMode(m){
+  mode=m;
+  $('mDetail').setAttribute('aria-pressed',m==='detail');
+  $('mOutline').setAttribute('aria-pressed',m==='outline');
+  // sensible default sensitivities per mode
+  sSlider.value = m==='detail'?60:45;
+  sVal.textContent=sSlider.value;
+  process();
+}
+
+/* ---------- downloads ---------- */
+$('dlEq').addEventListener('click',()=>{
+  const K=+kSlider.value;
+  let txt='FOURIER EQUATIONS OF YOUR IMAGE\n';
+  txt+='Each curve: x(t), y(t) for t in [0,1). Coordinates in pixel units of the processed image ('+W+'x'+H+', y increases downward).\n';
+  txt+='Model: z(t) = sum_{k=-K..K} c_k exp(2*pi*i*k*t), written below in real cos/sin form.\n';
+  txt+='Generated entirely in your browser.\n\n';
+  curves.forEach((c,i)=>{txt+=eqString(c,K,`==== Curve ${i+1} / ${curves.length} (K = ${K}) ====`)+'\n\n';});
+  const blob=new Blob([txt],{type:'text/plain'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob); a.download='fourier-equations.txt'; a.click();
+  URL.revokeObjectURL(a.href);
+});
+$('dlImg').addEventListener('click',()=>{
+  const a=document.createElement('a');
+  a.href=cvOut.toDataURL('image/png'); a.download='fourier-sketch.png'; a.click();
+});
+})();
+</script>
+</body>
+</html>
