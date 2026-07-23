@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>From Photo to Fourier — turn any picture into equations</title>
+<title>From Face to Fourier — turn your face into equations</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Spectral:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
@@ -40,10 +40,10 @@ header{margin-bottom:36px}
 }
 h1{
   font-family:'Spectral',serif;font-weight:600;font-size:clamp(1.9rem,4.6vw,3.1rem);
-  line-height:1.12;max-width:21ch;
+  line-height:1.12;max-width:22ch;
 }
 h1 .math{color:var(--pen);white-space:nowrap}
-.sub{margin-top:14px;max-width:58ch;color:var(--ink-soft);font-size:1.02rem;line-height:1.55}
+.sub{margin-top:14px;max-width:60ch;color:var(--ink-soft);font-size:1.02rem;line-height:1.55}
 .sub b{color:var(--ink)}
 
 /* upload */
@@ -57,10 +57,20 @@ h1 .math{color:var(--pen);white-space:nowrap}
 .drop .big{font-family:'Spectral',serif;font-size:1.25rem;font-weight:600}
 .drop .hint{margin-top:6px;color:var(--ink-soft);font-size:.9rem}
 .drop input{display:none}
-.privacy{
-  margin-top:10px;font-size:.82rem;color:var(--ink-soft);text-align:center;
-}
+.privacy{margin-top:10px;font-size:.82rem;color:var(--ink-soft);text-align:center}
 .privacy::before{content:"⌂ ";color:var(--pen)}
+
+/* crop stage */
+#cropStage{display:none;margin-top:30px}
+.crop-panel{max-width:460px;margin:0 auto;text-align:center}
+.crop-wrap{position:relative;display:inline-block;line-height:0;touch-action:none;user-select:none}
+#cropCanvas{display:block;max-width:100%;height:auto;border:1px solid var(--line);border-radius:6px;background:#fff}
+.crop-box{
+  position:absolute;border:2px solid var(--pen);background:rgba(192,57,43,.10);
+  cursor:grab;box-sizing:border-box;border-radius:4px;
+}
+.crop-box:active{cursor:grabbing}
+.crop-box::after{content:"";position:absolute;inset:3px;border:1px dashed rgba(255,255,255,.65);pointer-events:none;border-radius:2px}
 
 /* workspace */
 #work{display:none;margin-top:34px}
@@ -99,16 +109,12 @@ input[type=range]{accent-color:var(--pen);width:100%}
 .btn.ghost{background:#fff;color:var(--ink)}
 .btn:hover{background:var(--pen);border-color:var(--pen);color:#fff}
 .btn:focus-visible{outline:3px solid var(--pen);outline-offset:3px}
-.stat{
-  font-family:'IBM Plex Mono',monospace;font-size:.8rem;color:var(--ink-soft);
-  margin-top:14px;
-}
+.stat{font-family:'IBM Plex Mono',monospace;font-size:.8rem;color:var(--ink-soft);margin-top:14px}
 .stat b{color:var(--pen);font-weight:500}
+.mode-note{font-size:.78rem;color:var(--ink-soft);width:100%;margin-top:-8px}
 
 /* equations */
-.eqs{
-  margin-top:22px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:20px;
-}
+.eqs{margin-top:22px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:20px}
 .eqs h2{font-family:'Spectral',serif;font-weight:600;font-size:1.08rem;margin-bottom:6px}
 .eqs .note{font-size:.85rem;color:var(--ink-soft);margin-bottom:14px}
 pre#eqtext{
@@ -117,6 +123,15 @@ pre#eqtext{
   border-radius:6px;padding:16px;overflow-x:auto;white-space:pre;max-height:340px;overflow-y:auto;
 }
 .eqs .actions{margin-top:14px;display:flex;gap:12px;flex-wrap:wrap}
+
+/* math fingerprint */
+.fp-badge{font-family:'Spectral',serif;font-weight:700;font-size:1.5rem;color:var(--pen);margin:2px 0 20px}
+.fp-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px}
+.fp-card{border:1px solid var(--line);border-radius:8px;padding:14px 16px;background:#FBFBF8}
+.fp-card .fp-label{font-family:'IBM Plex Mono',monospace;font-size:.7rem;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.06em}
+.fp-card .fp-value{font-family:'Spectral',serif;font-weight:600;font-size:1.15rem;margin:5px 0 7px}
+.fp-card .fp-value .tier{color:var(--pen)}
+.fp-card .fp-blurb{font-size:.85rem;color:var(--ink-soft);line-height:1.5}
 
 /* how it works */
 .how{margin-top:44px;max-width:66ch}
@@ -130,10 +145,7 @@ pre#eqtext{
 footer{margin-top:50px;font-size:.8rem;color:var(--ink-soft)}
 
 /* desmos export modal */
-.overlay{
-  display:none;position:fixed;inset:0;background:rgba(22,33,62,.45);z-index:50;
-  align-items:center;justify-content:center;padding:20px;
-}
+.overlay{display:none;position:fixed;inset:0;background:rgba(22,33,62,.45);z-index:50;align-items:center;justify-content:center;padding:20px}
 .overlay.open{display:flex}
 .modal{
   background:var(--panel);border-radius:10px;max-width:680px;width:100%;
@@ -158,17 +170,33 @@ footer{margin-top:50px;font-size:.8rem;color:var(--ink-soft)}
 <div class="wrap">
 
 <header>
-  <div class="eyebrow">Fourier series · image processing · a classroom demo</div>
-  <h1>Every picture is secretly <span class="math">z(t)&nbsp;=&nbsp;Σ&nbsp;c<sub>k</sub>&nbsp;e<sup>2πikt</sup></span></h1>
-  <p class="sub">Upload a photo and this page will trace its contours, fit a <b>Fourier series</b> to every curve, and hand you the actual equations. Slide the number of terms and watch the picture emerge from pure sines and cosines.</p>
+  <div class="eyebrow">Fourier series · face geometry · a classroom demo</div>
+  <h1>Your face is secretly <span class="math">z(t)&nbsp;=&nbsp;Σ&nbsp;c<sub>k</sub>&nbsp;e<sup>2πikt</sup></span></h1>
+  <p class="sub">Upload a photo, crop to just the face, and this page traces its outline, fits a <b>Fourier series</b>, and hands you the actual equations — plus a plain-English <b>Math Fingerprint</b> describing your face's geometry.</p>
 </header>
 
-<div class="drop" id="drop" tabindex="0" role="button" aria-label="Upload an image">
+<div class="drop" id="drop" tabindex="0" role="button" aria-label="Upload a photo">
   <div class="big">Drop a photo here, or click to choose</div>
-  <div class="hint">Works best with a clear subject on a plain background — a portrait, a leaf, a logo, your signature</div>
+  <div class="hint">A clear, front-facing, well-lit photo works best — you'll crop to just the face next</div>
   <input type="file" id="file" accept="image/*">
 </div>
 <p class="privacy">Your photo never leaves this page — all the mathematics runs in your own browser.</p>
+
+<div id="cropStage">
+  <div class="panel crop-panel">
+    <h2>Crop to just the face <span class="tag">step 1 of 2</span></h2>
+    <div class="crop-wrap" id="cropWrap">
+      <canvas id="cropCanvas"></canvas>
+      <div class="crop-box" id="cropBox"></div>
+    </div>
+    <div class="ctrl" style="margin-top:16px">
+      <label for="cropSizeSlider">Crop size — <span class="val" id="cropSizeVal">55%</span></label>
+      <input type="range" id="cropSizeSlider" min="25" max="90" value="55">
+    </div>
+    <p class="hint" style="margin-top:8px">Drag the box so it covers roughly jaw to hairline, then continue.</p>
+    <button class="btn" id="analyzeFace" style="margin-top:16px">Analyze this face →</button>
+  </div>
+</div>
 
 <div id="work">
   <div class="controls">
@@ -185,11 +213,13 @@ footer{margin-top:50px;font-size:.8rem;color:var(--ink-soft)}
       <input type="range" id="sSlider" min="20" max="140" value="60">
     </div>
     <button class="btn ghost" id="redraw">Replay drawing</button>
+    <button class="btn ghost" id="recrop">← Adjust crop</button>
+    <p class="mode-note">"Outline only" needs a sliver of plain background inside the crop; "Detailed sketch" works on tight crops too.</p>
   </div>
 
   <div class="panels" style="margin-top:22px">
     <div class="panel">
-      <h2>Your photo <span class="tag">input</span></h2>
+      <h2>Your face crop <span class="tag">input</span></h2>
       <canvas class="view" id="cvSrc"></canvas>
     </div>
     <div class="panel">
@@ -201,7 +231,7 @@ footer{margin-top:50px;font-size:.8rem;color:var(--ink-soft)}
 
   <div class="eqs">
     <h2>The equations</h2>
-    <p class="note">Parametric form of the <b>longest curve</b> (usually the main outline), t ∈ [0, 1). Each additional curve in the sketch has its own pair of series — download the file for all of them.</p>
+    <p class="note">Parametric form of the <b>longest curve</b> in your face crop (usually the jawline/face outline), t ∈ [0, 1). Each additional facial curve (eyes, brows, nose, lips) has its own pair of series — download the file for all of them.</p>
     <pre id="eqtext"></pre>
     <div class="actions">
       <button class="btn" id="dlEq">Download all equations (.txt)</button>
@@ -209,14 +239,21 @@ footer{margin-top:50px;font-size:.8rem;color:var(--ink-soft)}
       <button class="btn ghost" id="dlImg">Download the sketch (.png)</button>
     </div>
   </div>
+
+  <div class="eqs" id="fingerprintPanel">
+    <h2>Your Math Fingerprint</h2>
+    <p class="note">Honest, fun facts about the <b>geometry of your face's outline</b> — computed straight from the equations above. Not a beauty score, not a personality read — just the actual shape your face happens to trace.</p>
+    <div class="fp-badge" id="fpBadge">—</div>
+    <div class="fp-grid" id="fpGrid"></div>
+  </div>
 </div>
 
 <section class="how">
   <h2>How it works</h2>
-  <p>Each closed contour in the image is treated as a path in the complex plane, z(t) = x(t) + i·y(t), traversed once as t runs from 0 to 1. Any such loop can be written as a sum of rotating vectors (epicycles):</p>
+  <p>Each closed contour in the cropped face is treated as a path in the complex plane, z(t) = x(t) + i·y(t), traversed once as t runs from 0 to 1. Any such loop can be written as a sum of rotating vectors (epicycles):</p>
   <div class="formula">z(t) = Σₖ cₖ · e^(2πik·t),   where   cₖ = ∫₀¹ z(t) · e^(−2πik·t) dt</div>
   <p>The coefficients cₖ are computed here with the discrete Fourier transform of the traced boundary points. Truncating the sum at ±K terms gives an approximation that sharpens as K grows — the same bias–variance trade-off you meet in regression, applied to a curve instead of a scatterplot.</p>
-  <p>Pipeline: grayscale → Sobel edge detection (or background thresholding in outline mode) → contour extraction (marching squares) → uniform arc-length resampling → DFT per curve.</p>
+  <p>Pipeline: you crop to the face → grayscale → Sobel edge detection (or background thresholding) → contour extraction (marching squares) → uniform arc-length resampling → DFT per curve. The Math Fingerprint panel then reads off shape descriptors — enclosed area, perimeter, compactness, spectral energy concentration — directly from those same Fourier coefficients.</p>
 </section>
 
 <footer>Built as a teaching demo for Fourier analysis. No uploads, no servers, no tracking — just mathematics.</footer>
@@ -245,17 +282,22 @@ footer{margin-top:50px;font-size:.8rem;color:var(--ink-soft)}
 "use strict";
 const $ = id => document.getElementById(id);
 const drop=$('drop'), fileIn=$('file'), work=$('work');
+const cropStage=$('cropStage'), cropCanvas=$('cropCanvas'), cropBox=$('cropBox');
+const cropSizeSlider=$('cropSizeSlider'), cropSizeVal=$('cropSizeVal'), analyzeBtn=$('analyzeFace');
 const cvSrc=$('cvSrc'), cvOut=$('cvOut');
 const kSlider=$('kSlider'), sSlider=$('sSlider'), kVal=$('kVal'), sVal=$('sVal');
 const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 const KMAX=120, RESAMPLE=1024, DRAW_PTS=500;
-let mode='detail';           // 'detail' | 'outline'
-let imgData=null, W=0, H=0;  // downscaled image
-let curves=[];               // [{coeffs: Map k->[re,im], npts}]
+let mode='detail';
+let imgData=null, W=0, H=0;
+let curves=[];
 let animId=null;
 
-/* ---------- upload ---------- */
+let sourceImg=null, PW=0, PH=0;
+let cropX=0, cropY=0, cropSizePx=0;
+let dragging=false, dragPointerId=null, dragStartClient={x:0,y:0}, dragStartBox={x:0,y:0};
+
 drop.addEventListener('click',()=>fileIn.click());
 drop.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();fileIn.click();}});
 ['dragover','dragenter'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add('over');}));
@@ -268,29 +310,92 @@ function loadFile(f){
   const img=new Image();
   img.onload=()=>{
     URL.revokeObjectURL(url);
+    sourceImg=img;
     const maxDim=380, s=Math.min(1,maxDim/Math.max(img.width,img.height));
-    W=Math.round(img.width*s); H=Math.round(img.height*s);
-    const c=document.createElement('canvas'); c.width=W; c.height=H;
-    c.getContext('2d').drawImage(img,0,0,W,H);
-    imgData=c.getContext('2d').getImageData(0,0,W,H);
-    // show source at display resolution
-    cvSrc.width=W*2; cvSrc.height=H*2;
-    cvSrc.getContext('2d').drawImage(img,0,0,W*2,H*2);
-    work.style.display='block';
-    process();
-    work.scrollIntoView({behavior:reduced?'auto':'smooth'});
+    PW=Math.round(img.width*s); PH=Math.round(img.height*s);
+    cropCanvas.width=PW; cropCanvas.height=PH;
+    cropCanvas.getContext('2d').drawImage(img,0,0,PW,PH);
+    cropSizePx=Math.round(0.55*Math.min(PW,PH));
+    cropX=(PW-cropSizePx)/2; cropY=(PH-cropSizePx)/2;
+    cropSizeSlider.value=55; cropSizeVal.textContent='55%';
+    layoutCropBox();
+    work.style.display='none';
+    cropStage.style.display='block';
+    cropStage.scrollIntoView({behavior:reduced?'auto':'smooth'});
   };
   img.onerror=()=>alert('That file could not be read as an image. Try a JPG or PNG.');
   img.src=url;
 }
 
-/* ---------- image ops ---------- */
+function clamp(v,lo,hi){return Math.max(lo,Math.min(hi,v));}
+function layoutCropBox(){
+  cropBox.style.left=(100*cropX/PW)+'%';
+  cropBox.style.top=(100*cropY/PH)+'%';
+  cropBox.style.width=(100*cropSizePx/PW)+'%';
+  cropBox.style.height=(100*cropSizePx/PH)+'%';
+}
+cropBox.addEventListener('pointerdown',e=>{
+  dragging=true; dragPointerId=e.pointerId;
+  cropBox.setPointerCapture(e.pointerId);
+  dragStartClient={x:e.clientX,y:e.clientY};
+  dragStartBox={x:cropX,y:cropY};
+  e.preventDefault();
+});
+cropBox.addEventListener('pointermove',e=>{
+  if(!dragging||e.pointerId!==dragPointerId) return;
+  const rect=cropCanvas.getBoundingClientRect();
+  const scale=PW/rect.width;
+  const dx=(e.clientX-dragStartClient.x)*scale;
+  const dy=(e.clientY-dragStartClient.y)*scale;
+  cropX=clamp(dragStartBox.x+dx,0,PW-cropSizePx);
+  cropY=clamp(dragStartBox.y+dy,0,PH-cropSizePx);
+  layoutCropBox();
+});
+cropBox.addEventListener('pointerup',()=>{dragging=false;});
+cropBox.addEventListener('pointercancel',()=>{dragging=false;});
+
+cropSizeSlider.addEventListener('input',()=>{
+  const pct=+cropSizeSlider.value;
+  cropSizeVal.textContent=pct+'%';
+  const newSize=Math.round(pct/100*Math.min(PW,PH));
+  const cx=cropX+cropSizePx/2, cy=cropY+cropSizePx/2;
+  cropSizePx=newSize;
+  cropX=clamp(cx-newSize/2,0,PW-newSize);
+  cropY=clamp(cy-newSize/2,0,PH-newSize);
+  layoutCropBox();
+});
+
+analyzeBtn.addEventListener('click',()=>{
+  const scaleOrig=sourceImg.naturalWidth/PW;
+  const sx=cropX*scaleOrig, sy=cropY*scaleOrig, ssize=cropSizePx*scaleOrig;
+  const target=Math.min(420, Math.max(120, Math.round(cropSizePx)));
+  const tmp=document.createElement('canvas'); tmp.width=target; tmp.height=target;
+  tmp.getContext('2d').drawImage(sourceImg, sx,sy,ssize,ssize, 0,0,target,target);
+  W=target; H=target;
+  imgData=tmp.getContext('2d').getImageData(0,0,W,H);
+
+  cvSrc.width=W*2; cvSrc.height=H*2;
+  const octx=cvSrc.getContext('2d');
+  octx.imageSmoothingEnabled=true;
+  octx.drawImage(tmp,0,0,W*2,H*2);
+
+  cropStage.style.display='none';
+  work.style.display='block';
+  process();
+  work.scrollIntoView({behavior:reduced?'auto':'smooth'});
+});
+$('recrop').addEventListener('click',()=>{
+  work.style.display='none';
+  cropStage.style.display='block';
+  cropStage.scrollIntoView({behavior:reduced?'auto':'smooth'});
+});
+
 function grayscale(d){
   const g=new Float64Array(W*H);
   for(let i=0;i<W*H;i++){const p=i*4; g[i]=0.299*d.data[p]+0.587*d.data[p+1]+0.114*d.data[p+2];}
   return g;
 }
-function blur3(g){ // light 3x3 box blur
+function blur3(g){
   const o=new Float64Array(W*H);
   for(let y=0;y<H;y++)for(let x=0;x<W;x++){
     let s=0,n=0;
@@ -313,7 +418,6 @@ function sobelMask(g,thr){
   return v;
 }
 function backgroundMask(d,tol){
-  // estimate background colour from the border pixels (median-ish: mean of border)
   let r=0,g=0,b=0,n=0;
   const add=(x,y)=>{const p=(y*W+x)*4; r+=d.data[p];g+=d.data[p+1];b+=d.data[p+2];n++;};
   for(let x=0;x<W;x++){add(x,0);add(x,H-1);}
@@ -328,19 +432,16 @@ function backgroundMask(d,tol){
   return v;
 }
 
-/* ---------- contours (marching squares via d3) ---------- */
 function extractCurves(values){
   const polys=d3.contours().size([W,H]).contour(values,0.5);
   const rings=[];
   for(const poly of polys.coordinates) for(const ring of poly) rings.push(ring);
-  // filter tiny rings, keep by perimeter length
-  const kept=rings.filter(r=>r.length>=40)
+  const kept=rings.filter(r=>r.length>=30)
                   .sort((a,b)=>b.length-a.length)
                   .slice(0,60);
   return kept.map(fitFourier);
 }
 function resample(ring,N){
-  // uniform arc-length resampling to N points
   const L=[0];
   for(let i=1;i<ring.length;i++)
     L.push(L[i-1]+Math.hypot(ring[i][0]-ring[i-1][0],ring[i][1]-ring[i-1][1]));
@@ -360,6 +461,11 @@ function resample(ring,N){
 function fitFourier(ring){
   const pts=resample(ring,RESAMPLE);
   const N=RESAMPLE;
+  let perim=0;
+  for(let i=0;i<N;i++){
+    const j=(i+1)%N;
+    perim+=Math.hypot(pts[2*j]-pts[2*i], pts[2*j+1]-pts[2*i+1]);
+  }
   const coeffs={};
   for(let k=-KMAX;k<=KMAX;k++){
     let re=0,im=0;
@@ -371,10 +477,9 @@ function fitFourier(ring){
     }
     coeffs[k]=[re/N,im/N];
   }
-  return {coeffs, perim:ring.length};
+  return {coeffs, perim};
 }
 
-/* ---------- reconstruction ---------- */
 function curvePoints(curve,K,nPts){
   const out=new Float64Array(nPts*2);
   for(let i=0;i<nPts;i++){
@@ -420,9 +525,7 @@ function render(animate){
   animId=requestAnimationFrame(step);
 }
 
-/* ---------- equations text ---------- */
 function realCoeffs(curve,K){
-  // convert c_k to x(t),y(t) cos/sin form
   const c0=curve.coeffs[0];
   const terms=[];
   for(let k=1;k<=K;k++){
@@ -446,18 +549,92 @@ function eqString(curve,K,label){
   return s;
 }
 function updateEquationPanel(){
-  if(!curves.length){$('eqtext').textContent='No curves found — try raising the edge sensitivity slider or a higher-contrast photo.';return;}
+  if(!curves.length){$('eqtext').textContent='No curves found — try raising the edge sensitivity slider, a bigger crop, or a higher-contrast photo.';return;}
   const K=+kSlider.value;
   const main=curves[0];
   const showK=Math.min(K,8);
-  let txt=eqString(main,showK,`— Curve 1 of ${curves.length} (main outline), first ${showK} of ${K} harmonics, t ∈ [0,1) —`);
+  let txt=eqString(main,showK,`— Curve 1 of ${curves.length} (main face outline), first ${showK} of ${K} harmonics, t ∈ [0,1) —`);
   if(K>showK) txt+=`\n\n   … + ${K-showK} more harmonics per axis (in the downloaded file)`;
   $('eqtext').textContent=txt;
   $('stat').innerHTML=`<b>${curves.length}</b> curves · <b>K = ${K}</b> harmonics each · <b>${curves.length*(2*(2*K+1))}</b> real coefficients in total`;
   $('statTag').textContent=`${curves.length} curves · K=${K}`;
 }
 
-/* ---------- pipeline ---------- */
+function computeFingerprint(curve){
+  let area=0;
+  for(let k=-KMAX;k<=KMAX;k++){
+    const c=curve.coeffs[k]; if(!c) continue;
+    area += k*(c[0]*c[0]+c[1]*c[1]);
+  }
+  area=Math.abs(area*Math.PI);
+  const coverage=100*area/(W*H);
+  const perimeter=curve.perim;
+  const compactness=(perimeter*perimeter)/(4*Math.PI*area);
+
+  const energies=[];
+  for(let k=-KMAX;k<=KMAX;k++){
+    if(k===0) continue;
+    const c=curve.coeffs[k]; if(!c) continue;
+    energies.push(c[0]*c[0]+c[1]*c[1]);
+  }
+  energies.sort((a,b)=>b-a);
+  const total=energies.reduce((s,e)=>s+e,0)||1;
+  let cum=0,k95=0;
+  for(const e of energies){cum+=e;k95++;if(cum/total>=0.95)break;}
+
+  const mag=c=>Math.hypot(c[0],c[1]);
+  const c1=curve.coeffs[1]||[0,0], cm1=curve.coeffs[-1]||[0,0];
+  const semiMajor=mag(c1)+mag(cm1);
+  const semiMinor=Math.abs(mag(c1)-mag(cm1));
+  const aspect=semiMinor>1e-6 ? semiMajor/semiMinor : 99;
+
+  return {area,coverage,perimeter,compactness,k95,aspect};
+}
+function complexityCategory(k95){
+  if(k95<=4)  return {label:'Minimalist', blurb:'A handful of curves capture almost your whole face outline — clean and simple, like a circle or a guitar pick.'};
+  if(k95<=10) return {label:'Balanced',   blurb:'A nice mix of smooth curves and character — think a leaf or a violin body.'};
+  if(k95<=20) return {label:'Detailed',   blurb:'Plenty of twists and turns packed in — like a maple leaf or a winding coastline.'};
+  return {label:'Intricate', blurb:'Lots of fine structure — like a snowflake or tree bark. Real texture in that outline.'};
+}
+function compactnessCategory(c){
+  if(c<=2) return {label:'Round & Compact',   blurb:'Close to a circle — a tidy, efficient outline.'};
+  if(c<=4) return {label:'Balanced Silhouette', blurb:'A natural, gently curved outline — not too round, not too jagged.'};
+  if(c<=7) return {label:'Elongated Form',    blurb:'Your outline stretches and winds a fair bit — more chin-and-jaw than a plain oval.'};
+  return {label:'Elaborate Outline', blurb:'A wonderfully complex boundary, full of curves and detail.'};
+}
+function aspectCategory(a){
+  if(a<=1.3) return {label:'Nearly Round', blurb:'About as wide as it is tall.'};
+  if(a<=2)   return {label:'Egg-shaped',   blurb:'A gentle elongation, like an egg.'};
+  if(a<=3)   return {label:'Oval',         blurb:'Noticeably longer than wide.'};
+  return {label:'Elongated', blurb:'Quite stretched out — a long oval.'};
+}
+function updateFingerprint(){
+  const panel=$('fingerprintPanel');
+  if(!curves.length){panel.style.display='none';return;}
+  panel.style.display='block';
+  const fp=computeFingerprint(curves[0]);
+  const cplx=complexityCategory(fp.k95);
+  const comp=compactnessCategory(fp.compactness);
+  const asp=aspectCategory(fp.aspect);
+  $('fpBadge').textContent=`${cplx.label} & ${comp.label}`;
+  const cards=[
+    {label:'Shape complexity', value:`${fp.k95} harmonics`, tier:cplx.label,
+     blurb:`Just ${fp.k95} of the ${KMAX} fitted harmonics already capture 95% of your face outline's shape — the rest are fine texture, not the overall form. ${cplx.blurb}`},
+    {label:'Outline character', value:fp.compactness.toFixed(2), tier:comp.label,
+     blurb:`Measures how far the outline strays from a perfect circle (1.00 = circle). ${comp.blurb}`},
+    {label:'Overall proportions', value:`${fp.aspect.toFixed(2)} : 1`, tier:asp.label,
+     blurb:`Ratio of the longest to shortest direction of your face's best-fit ellipse. ${asp.blurb}`},
+    {label:'Crop coverage', value:`${fp.coverage.toFixed(1)}%`, tier:'',
+     blurb:`The traced face outline fills about ${fp.coverage.toFixed(0)}% of your cropped square — the rest is background/hair.`},
+  ];
+  $('fpGrid').innerHTML=cards.map(c=>`
+    <div class="fp-card">
+      <div class="fp-label">${c.label}</div>
+      <div class="fp-value">${c.value}${c.tier?` — <span class="tier">${c.tier}</span>`:''}</div>
+      <div class="fp-blurb">${c.blurb}</div>
+    </div>`).join('');
+}
+
 function process(){
   if(!imgData) return;
   const g=blur3(grayscale(imgData));
@@ -467,9 +644,9 @@ function process(){
   curves=extractCurves(values);
   render(true);
   updateEquationPanel();
+  updateFingerprint();
 }
 
-/* ---------- controls ---------- */
 kSlider.addEventListener('input',()=>{kVal.textContent=kSlider.value; render(false); updateEquationPanel();});
 kSlider.addEventListener('change',()=>render(true));
 sSlider.addEventListener('input',()=>{sVal.textContent=sSlider.value;});
@@ -481,24 +658,20 @@ function setMode(m){
   mode=m;
   $('mDetail').setAttribute('aria-pressed',m==='detail');
   $('mOutline').setAttribute('aria-pressed',m==='outline');
-  // sensible default sensitivities per mode
   sSlider.value = m==='detail'?60:45;
   sVal.textContent=sSlider.value;
   process();
 }
 
-/* ---------- desmos export ---------- */
 function desmosExport(){
-  // Transform: center on image midpoint, scale to ~4 units, flip y (pixel y points down)
   const s=4/Math.max(W,H), cx=W/2, cy=H/2;
-  const L=Math.min(+kSlider.value,50);                 // harmonics per curve in the export
-  const M=Math.min(curves.length,15);                  // top curves by length
+  const L=Math.min(+kSlider.value,50);
+  const M=Math.min(curves.length,15);
   const num=v=>{const r=v.toFixed(3);return r==='-0.000'?'0.000':r;};
   const list=a=>'\\left['+a.map(num).join(',')+'\\right]';
   const lines=['K='+L];
   for(let i=0;i<M;i++){
     const rc=realCoeffs(curves[i],L);
-    // apply transform to coefficients (linear, so it maps directly)
     const Ax=rc.terms.map(T=> T.Ax*s), Bx=rc.terms.map(T=> T.Bx*s);
     const Ay=rc.terms.map(T=>-T.Ay*s), By=rc.terms.map(T=>-T.By*s);
     const x0=(rc.a0x-cx)*s, y0=(cy-rc.a0y)*s;
@@ -533,22 +706,21 @@ $('copyDesmos').addEventListener('click',async()=>{
   $('copiedMsg').classList.add('show');
 });
 
-/* ---------- downloads ---------- */
 $('dlEq').addEventListener('click',()=>{
   const K=+kSlider.value;
-  let txt='FOURIER EQUATIONS OF YOUR IMAGE\n';
-  txt+='Each curve: x(t), y(t) for t in [0,1). Coordinates in pixel units of the processed image ('+W+'x'+H+', y increases downward).\n';
+  let txt='FOURIER EQUATIONS OF YOUR FACE CROP\n';
+  txt+='Each curve: x(t), y(t) for t in [0,1). Coordinates in pixel units of the cropped image ('+W+'x'+H+', y increases downward).\n';
   txt+='Model: z(t) = sum_{k=-K..K} c_k exp(2*pi*i*k*t), written below in real cos/sin form.\n';
   txt+='Generated entirely in your browser.\n\n';
   curves.forEach((c,i)=>{txt+=eqString(c,K,`==== Curve ${i+1} / ${curves.length} (K = ${K}) ====`)+'\n\n';});
   const blob=new Blob([txt],{type:'text/plain'});
   const a=document.createElement('a');
-  a.href=URL.createObjectURL(blob); a.download='fourier-equations.txt'; a.click();
+  a.href=URL.createObjectURL(blob); a.download='face-fourier-equations.txt'; a.click();
   URL.revokeObjectURL(a.href);
 });
 $('dlImg').addEventListener('click',()=>{
   const a=document.createElement('a');
-  a.href=cvOut.toDataURL('image/png'); a.download='fourier-sketch.png'; a.click();
+  a.href=cvOut.toDataURL('image/png'); a.download='face-fourier-sketch.png'; a.click();
 });
 })();
 </script>
